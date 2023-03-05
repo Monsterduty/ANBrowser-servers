@@ -1,0 +1,40 @@
+user search for content:
+	server --search 'anime name'
+return from web:
+	name 'anime name'
+	miniature 'url miniature'
+	description 'anime description if any'
+	link 'url to fetch its content'
+	end <- this must be the end of the list for each anime
+
+user select an anime to view:
+	server --fetch 'url to fetch its content'
+return from web:
+	description 'the complete description if any'
+	episodeList 'all the episodes to select'
+	seasonList 'all the seasons to select'
+	download 'a boolean [yes/no] to know if you can download the anime'
+
+user play an episode:
+	server --play 'season' 'episode' 'url to fetch in search for episode' 'optional quality'
+return from web:
+	link 'an url to start playing the video url.mp4/url.mkv/url.m3u8'
+	currentQuality 'if there's not qualities to select you can just pass the word "Default"'
+	availableQualities 'an array of all the qualities available to select during video reproduction'
+	options 'all the options available if there's no more options just past "Default"'
+	//next "an url for the next episode or season"
+	//prev 'an url for the previous episode or season'
+
+user is able to download the anime:
+	server --download 'an array of season and episode to download or if recive the word "all" download everithing'
+return from web:
+	'any link separed by endlines to all the episode to download one by one'
+	https://animeS1E1.o.mp4
+	https://animeS1E2.o.mp4
+	and so on.
+
+extras==============++++>
+	server --logo 'return binary data of the logo image to load on the client'
+	server --name 'return the name of the server to use on the client'
+	server --version 'return the version of the client to use on the client'
+	server --language 'the laguage the server provide animes'
