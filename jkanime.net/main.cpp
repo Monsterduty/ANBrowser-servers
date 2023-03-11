@@ -1,4 +1,6 @@
 //coded my Monsterduty.
+#include "qnetworkreply.h"
+#include "qnetworkrequest.h"
 #include <QApplication>
 #include <QAbstractSocket>
 #include <QNetworkAccessManager>
@@ -6,6 +8,8 @@
 #include <QNetworkReply>
 #include <QEventLoop>
 #include <QByteArray>
+#include <asm-generic/errno-base.h>
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -37,7 +41,7 @@ QString download( QString link )
   return QString( bts );
 }
 
-QString sendPOST( QString link, QByteArray data )
+QString sendPOST( QString link, QByteArray data, std::vector<std::pair<QByteArray, QByteArray>> headers = {} )
 {
   QUrl URL(link);
   QNetworkAccessManager *manager = new QNetworkAccessManager();
@@ -46,6 +50,10 @@ QString sendPOST( QString link, QByteArray data )
   QEventLoop loop;
   request.setUrl(URL);
 
+  if ( headers.size() > 0 )
+    for ( auto item : headers )
+      request.setRawHeader(item.first, item.second);
+
   reply = manager->post(request, data);
 
   QAbstractSocket::connect( reply, &QNetworkReply::finished, &loop, &QEventLoop::quit );
@@ -53,6 +61,53 @@ QString sendPOST( QString link, QByteArray data )
 
   QByteArray bts = reply->readAll();
   return QString(bts);
+}
+
+auto sendGET( QString link, std::vector<std::pair<QByteArray, QByteArray>> headers )
+{
+  QUrl URL(link);
+  QNetworkAccessManager *manager = new QNetworkAccessManager();
+  QNetworkRequest request;
+  QNetworkReply *reply = nullptr;
+  QEventLoop loop;
+  request.setUrl(URL);
+
+  for ( auto arg : headers )
+    request.setRawHeader( arg.first, arg.second);
+
+  reply = manager->get(request);
+
+  QAbstractSocket::connect( reply, &QNetworkReply::finished, &loop, &QEventLoop::quit );
+  loop.exec();
+
+  QByteArray bts = reply->readAll();
+  return QString(bts);
+}
+
+auto getPOST_Reply( QString link, QByteArray data, std::vector<std::pair<QByteArray, QByteArray>> headers = {} )
+{
+  QUrl URL(link);
+  QNetworkAccessManager *manager = new QNetworkAccessManager();
+  QNetworkRequest request;
+  QNetworkReply *reply = nullptr;
+  QEventLoop loop;
+  request.setUrl(URL);
+
+  if ( headers.size() > 0 )
+    for ( auto item : headers )
+      request.setRawHeader(item.first, item.second);
+
+  reply = manager->post(request, data);
+
+  QAbstractSocket::connect( reply, &QNetworkReply::finished, &loop, &QEventLoop::quit );
+  loop.exec();
+
+//i can't find the location field in the response but it is pressent in the header! :(
+  qDebug() << reply->header(QNetworkRequest::LocationHeader);
+  // qDebug() << reply->readAll();
+  // QByteArray bts = reply->readAll();
+
+  return reply;
 }
 
 //===============================================>
@@ -239,6 +294,96 @@ void optionJkPhp( string option, std::vector<std::pair<string, string>> &informa
   information.push_back(values);
 }
 
+void optionJkDesu( string option, std::vector<std::pair<string, string>> &information )
+{
+  string base = "https://jkanime.bz";
+  string link = base + option;
+
+  string html = download(link.c_str()).toStdString();
+  
+  istringstream search(html);
+  string line = "";
+
+  while (std::getline(search,line))
+    if ( line.find("swarmId") != string::npos )
+    {
+      size_t pos = line.find("swarmId: '")+10;
+      string aux = line.substr(pos,line.length());
+      aux = aux.substr(0,aux.find("'"));
+      std::pair info("Default", aux);
+      information.push_back(info);
+      return;
+    }
+}
+
+void optionUm2Php( string option, std::vector<std::pair<string, string>> &information )
+{
+  string base = "https://jkanime.bz";
+  string link = base + option;
+  // cout << link << endl;
+  // string html = sendPOST(link.c_str(), "v=").toStdString();
+  std::pair<QByteArray,QByteArray> header( "Referer", "https://jkanime.bz" );
+  std::vector<std::pair<QByteArray,QByteArray>> headers;
+  headers.push_back(header);
+  string html = sendGET(link.c_str(), headers ).toStdString();
+
+  istringstream search(html);
+  string line = "";
+  string postData = "";
+  while ( std::getline(search, line) )
+  {
+    if ( line.find("<form action=") != string::npos )
+    {
+      size_t pos = line.find("=") + 2;
+      string aux = line.substr(pos,line.length());
+      aux = aux.substr(0,aux.find('"'));
+      link = "http://jkanime.bz" + aux;
+      // break;
+    }
+
+    if ( line.find("<input type") != string::npos )
+    {
+      size_t pos = line.find("name") + 6;
+      string name = line.substr(pos,line.length());
+      name = name.substr(0, name.find('"'));
+
+      pos = line.find("value") + 7;
+      string data = line.substr(pos,line.length());
+      data = data.substr(0,data.find('"'));
+      postData = name + "=" + data;
+      break;
+    }
+  }
+  
+  headers.clear();
+
+  header.first = "Content-Type";
+  header.second = "application/x-www-form-urlencoded";
+  headers.push_back(header);
+
+  header.first = "Referer";
+  header.second = "https://jkanime.bz";
+  headers.push_back(header);
+
+  // html = sendPOST(link.c_str(), postData.c_str(), headers).toStdString();
+  
+  QNetworkReply *reply = getPOST_Reply(link.c_str(), postData.c_str(), headers);
+
+
+//i can't find the location field in the response but it is pressent in the header! :(
+  qDebug() << reply->rawHeader("Location");
+
+  exit(0);
+  cout << html << endl;
+  // header.first = "data";
+  // header.second = "WlZUcUJEdy9DU0MwOHdMSVI2T0Nlems3UjdadzdBTUZnR1JheiswMXd0cHBqQzVGNjRSLzVZN3lsWkEwUzh2dw";
+  // headers.push_back(header);
+
+  exit(0);
+
+  html = sendPOST( "http://jkanime.bz/gsplay/api.php", "v=#UE5aWGllSjk5Q2JhS0ZQOHVPdzVnUW9hR0MwZlpqYml1S0crTlF2WXVCaGNnRDA1angwNkcwVHZLY2pFZFErVHFBSVJiVnE2Zm51VFpLMWFKZjlpbHNYUTU2aGN3Z2F3NUg1bUwzN1A0WXdOZTdMYUk2aW9HeTV1VDFGaks3TWx0OGpTcVY2clFLOHlOekd3emo3RllPT3F3MjdLeXR4Ny9FNVlFQzV4V2NGRXZ5SFMrendJbEVGUGYwK3FrZEdVNDBURjV3ZW53SDdVWE9XUlZrbSs0MzBQQ0FxK0lydTdTTW9aNDl0OUpBdz0", headers).toStdString();
+  cout << html << endl;
+}
 
 void playInformation( std::vector<std::pair<string, string>> &information, std::vector<string> &options )
 {
@@ -357,7 +502,8 @@ int main(int argc, char *argv[])
       exit(1);
     }
     string base = "https://jkanime.bz";
-    string availableOptionsToHandle[] = {"jkfembed", "jk.php"};
+    string availableOptionsToHandle[] = {"jkfembed", "jk.php", "um.php"};
+    string correspondingServer[] = { "jkfembed", "jk.php", "um.php" };
     string episode = argv[3];
     string season; //not used on this server.
     string quality = "";
@@ -418,15 +564,18 @@ int main(int argc, char *argv[])
       if ( option != "" )
       {
         if ( element.find(option) != string::npos )
-        {  
-          if ( element.find("jk.php") != string::npos ) optionJkPhp( element, information );
+        { 
+          // if ( element.find("um2.php") != string::npos ) optionUm2Php( element, information );
           if ( element.find("jkfembed.php") != string::npos ) optionJkFembed( element, information );
+          if ( element.find("jk.php") != string::npos ) optionJkPhp( element, information );
+          if ( element.find("um.php") != string::npos ) optionJkDesu( element, information ); 
         }
       }
       else
       {
-        if ( element.find("jk.php") != string::npos ) optionJkPhp( element, information );
         if ( element.find("jkfembed.php") != string::npos ) optionJkFembed( element, information );
+        if ( element.find("jk.php") != string::npos ) optionJkPhp( element, information );
+        if ( element.find("um.php") != string::npos ) optionJkDesu( element, information );
       }
       if ( information.size() > 0 ) break;
     }
