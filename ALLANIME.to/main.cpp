@@ -73,8 +73,8 @@ void replaceByString( string &line,string word, string byThis )
 
 void changeHtmlEntities( string &text )
 {
-	string opcodes[] = {"&lt;", "&gt;", "&le;", "&ge;", "&amp;apos;", "&amp;", "&quot;", "&#x2014;"};
-	string meaning[] = { "<", ">", "≤", "≥", "'", "&", {'"'}, "—" };
+	string opcodes[] = {"&lt;", "&gt;", "&le;", "&ge;", "&amp;apos;", "&amp;", "&quot;", "&#x2014;", "&#39;", "&#039;" };
+	string meaning[] = { "<", ">", "≤", "≥", "'", "&", {'"'}, "—", "'", "'" };
 
 	for( int i = 0; i < std::size(opcodes); i++ )
 	{
@@ -407,6 +407,7 @@ int main(int argc, char *argv[])
 				aux = aux.substr(0, aux.find({'"',','}));
 				linkTemplate += generateAnimeLinkName(aux) + "/";
 				final.push_back("link :"+linkTemplate);
+				changeHtmlEntities(aux);
 				final.push_back("name :" + aux);
 
 				//manage miniature,
@@ -465,7 +466,7 @@ int main(int argc, char *argv[])
 	else
 	if ( string(argv[1]) == "--name" )
 	{
-		cout << "Allanime.site" << endl;
+		cout << "Allanime.to" << endl;
 	}
 	else
 	if ( string(argv[1]) == "--logo" )

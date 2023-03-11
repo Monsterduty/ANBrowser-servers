@@ -102,7 +102,7 @@ auto getPOST_Reply( QString link, QByteArray data, std::vector<std::pair<QByteAr
   QAbstractSocket::connect( reply, &QNetworkReply::finished, &loop, &QEventLoop::quit );
   loop.exec();
 
-//i can't find the location field in the response but it is pressent in the header! :(
+  //i can't find the location field in the response but it is pressent in the header! :(
   qDebug() << reply->header(QNetworkRequest::LocationHeader);
   // qDebug() << reply->readAll();
   // QByteArray bts = reply->readAll();
@@ -149,6 +149,33 @@ void replaceByString( string &line,string word, string byThis )
 //SEARCH ANIME UTILITIES.
 //==================================================>
 
+void changeHtmlEntities( string &text )
+{
+  cout << text << std::endl;
+  string opcodes[] = {"&lt;", "&gt;", "&le;", "&ge;", "&amp;apos;", "&amp;", "&quot;", "&#x2014;", "&#39;", "&#039;" };
+  string meaning[] = { "<", ">", "≤", "≥", "'", "&", {'"'}, "—", "'", "'" };
+
+  cout << "enter first loop";
+  for( int i = 0; i < std::size(opcodes); i++ )
+  {
+    while ( text.find(opcodes[i]) != string::npos )
+    {
+      size_t pos = text.find(opcodes[i]);
+      string aux = text.substr(0, pos);
+      aux += meaning[i];
+      aux += text.substr(pos+opcodes[i].length(), text.length());
+      text = aux;
+    }
+  }
+  cout << "exit loop" << endl;
+  if ( text.find('<') != string::npos )
+  {
+    size_t pos = text.find('<');
+    text = text.substr(0, pos);
+  }
+  cout << "result: " << text << endl;
+}
+
 std::vector<std::pair<string, string>> getAnimeNamesAndLink( string &html )
 {
   istringstream search(html);
@@ -161,7 +188,7 @@ std::vector<std::pair<string, string>> getAnimeNamesAndLink( string &html )
         size_t pos = line.find("title=") + 7;
         string name = line.substr(pos, line.length());
         name = name.substr(0,name.find('"'));
-        
+
         pos = line.find("href=") + 6;
         string url = line.substr(pos, line.length());
         url = url.substr(0, url.find('"'));
@@ -370,7 +397,7 @@ void optionUm2Php( string option, std::vector<std::pair<string, string>> &inform
   QNetworkReply *reply = getPOST_Reply(link.c_str(), postData.c_str(), headers);
 
 
-//i can't find the location field in the response but it is pressent in the header! :(
+  //i can't find the location field in the response but it is pressent in the header! :(
   qDebug() << reply->rawHeader("Location");
 
   exit(0);
@@ -436,6 +463,7 @@ string getDescription( string &html )
       data = line.substr(pos,line.length());
       data = data.substr(0, data.find('<'));
     }
+  changeHtmlEntities(data);
   return data;
 }
 
@@ -606,6 +634,7 @@ int main(int argc, char *argv[])
 
     for ( int i = 0; i < names.size(); i++ )
     {
+      changeHtmlEntities(names.at(i).first);
       cout << "name :" << names.at(i).first << endl;
       cout << "miniature :" << miniatures.at(i) << endl;
       cout << "link :" << names.at(i).second << endl;
