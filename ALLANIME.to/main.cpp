@@ -6,6 +6,7 @@
 #include <QNetworkReply>
 #include <QEventLoop>
 #include <QByteArray>
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -255,7 +256,8 @@ int main(int argc, char *argv[])
 			if ( id.find("&referer") != string::npos )
 				id = id.substr(0, id.find("&referer"));
 
-			string prefix = "https://blog.allanime.pro/apivtwo/clock.json\?id\=" + id;
+			string prefix = "https://blog.allanime.pro/apivtwo/clock.json\?id=" + id;
+
 			html = download(prefix.c_str()).toStdString();
 
 			if ( option == "" )
@@ -326,6 +328,12 @@ int main(int argc, char *argv[])
 				exit(1);
 			}
 
+			if ( currentQuality == "" )
+				currentQuality = "Default";
+
+			if ( qualitiesAvailable == "" )
+				qualitiesAvailable = "Default";
+
 			streamingData = streamingData.substr(0, change);
 			streamingData += episodeKey;
 			cout << "link :" << streamingData << endl;
@@ -370,8 +378,8 @@ int main(int argc, char *argv[])
 			spacePos = animeName.find(" ");
 		}
 
-		string urlTemplate = "https://allanime.to/allanimeapi?variables=%7B%22search%22%3A%7B%22allowAdult%22%3Atrue%2C%22allowUnknown%22%3Atrue%2C%22query%22%3A%22" + animeName + "%22%7D%2C%22limit%22%3A40%2C%22page%22%3A1%2C%22translationType%22%3A%22" + mode + "%22%2C%22countryOrigin%22%3A%22ALL%22%7D&extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%229c7a8bc1e095a34f2972699e8105f7aaf9082c6e1ccd56eab99c2f1a971152c6%22%7D%7D";
-
+		// string urlTemplate = "https://api.allanime.to/allanimeapi?variables=%7B%22search%22%3A%7B%22allowAdult%22%3Atrue%2C%22allowUnknown%22%3Atrue%2C%22query%22%3A%22" + animeName + "%22%7D%2C%22limit%22%3A40%2C%22page%22%3A1%2C%22translationType%22%3A%22" + mode + "%22%2C%22countryOrigin%22%3A%22ALL%22%7D&extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%229c7a8bc1e095a34f2972699e8105f7aaf9082c6e1ccd56eab99c2f1a971152c6%22%7D%7D";
+		string urlTemplate = "https://api.allanime.to/allanimeapi?variables=%7B%22search%22%3A%7B%22query%22%3A%22" + animeName + "%22%2C%22allowAdult%22%3Afalse%2C%22allowUnknown%22%3Afalse%7D%2C%22limit%22%3A26%2C%22page%22%3A1%2C%22translationType%22%3A%22sub%22%2C%22countryOrigin%22%3A%22ALL%22%7D&extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%22c4305f3918591071dfecd081da12243725364f6b7dd92072df09d915e390b1b7%22%7D%7D";
 		string jsonData = download(urlTemplate.c_str()).toStdString();
 
 		replaceByChar(jsonData, "{}", "\n");
