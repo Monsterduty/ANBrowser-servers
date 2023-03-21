@@ -6,3 +6,11 @@ testResult
 animeIdsExamples
 ani-cli
 main.o
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
+compile_flags.txt
+Makefile
+vcpkg
+.*
+compile_commands.json

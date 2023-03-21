@@ -9,10 +9,12 @@
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
+#include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <iterator>
 #include <sstream>
 #include <cctype>
+#include <nlohmann/json.hpp>
 
 using std::string;
 using std::istringstream;
@@ -73,8 +75,8 @@ void replaceByString( string &line,string word, string byThis )
 
 void changeHtmlEntities( string &text )
 {
-	string opcodes[] = {"&lt;", "&gt;", "&le;", "&ge;", "&amp;apos;", "&amp;", "&quot;", "&#x2014;", "&#39;", "&#039;" };
-	string meaning[] = { "<", ">", "≤", "≥", "'", "&", {'"'}, "—", "'", "'" };
+	string opcodes[] = {"&lt;","u003C", "&gt;", "u003C", "&le;", "&ge;", "&amp;apos;", "&amp;", "&quot;", "&#x2014;", "&#39;", "&#039;", "&apos;", "<br>", "<i>", "</i>" };
+	string meaning[] = { "<", "<", ">", ">", "≤", "≥", "'", "&", {'"'}, "—", "'", "'", "'", "", "", "" };
 
 	for( int i = 0; i < std::size(opcodes); i++ )
 	{
@@ -101,8 +103,9 @@ void stractNameAndId(string &line)
 	string ret = "";
 	while ( std::getline(search,buffer) )
 	{
-		char source[] = {'s','o','u','r','c','e','U','r','l','"',':','"'};
+		const char *source = ".sourceUrl=/";//{'s','o','u','r','c','e','U','r','l','"',':','"'};
 		if ( buffer.find(source) != string::npos )
+		continue;
 			if ( buffer.find("clock?id=") != string::npos )
 			{
 				//cout << buffer << endl;
@@ -112,7 +115,7 @@ void stractNameAndId(string &line)
 				id = id.substr(0, id.find('"'));
 				
 				pos1 = buffer.find("sourceName");
-				string name = buffer.substr(pos1+13, buffer.length());
+				string name = buffer.substr(pos1+12, buffer.length());
 				name = name.substr(0, name.find('"'));
 				ret += name + " :" + id + "\n";
 			}
@@ -135,13 +138,12 @@ string GetIds( string &page )
 		string backSlash = "";
 		backSlash.push_back(a[0]);
 		replaceByString(buf, backSlash, "" );
-
 		if ( buf.find("sourceUrl") != string::npos )
 			stractNameAndId(buf);
 		else
 			continue;
 		
-			ret += buf;
+		ret += buf;
 	}
 	return ret;
 }
@@ -179,9 +181,167 @@ string generateAnimeLinkName(string name)
 
 //==================================================>
 
-string getEpisodeFromM3u8( string id )
+void getEpisodeM3u8FromWww005_anifastcdn_info( string link, std::vector<std::pair<string, string>> &nameAndLink )
 {
-	return "";
+	string m3u8Data = download(link.c_str()).toStdString();
+
+	istringstream search(m3u8Data);
+	string line = "";
+	std::vector<string> names;
+	std::vector<string> Links;
+	while( std::getline( search, line ) )
+	{
+		string name = "NAME=";
+		if ( line.find(name) != string::npos )
+		{
+			size_t pos = line.find(name) + name.size() + 1;
+			string aux = line.substr(pos, line.length());
+			aux = aux.substr(0, aux.find('"'));
+			names.push_back(aux);
+			continue;
+		}
+		if ( line.find_last_of("ep.") != string::npos )
+		{
+			//since in this option the links are based on the parent link
+			//we need to cut the parent link and append the line with the format
+			//and quality desired.
+			size_t pos = link.find("ep.");
+			string aux = link.substr(0, pos);
+			aux += line;
+			Links.push_back(aux);
+			continue;
+		}
+	}
+
+	if ( names.size() != Links.size() )
+	{
+		cout <<"WARNING: lost data on option from www005.anifastcdn.info" << endl;
+		names.clear();
+		Links.clear();
+		return;
+	}
+
+	for ( int i = 0; i < names.size(); i++ )
+	{
+		std::pair<string, string> data( names.at(i), Links.at(i) );
+		nameAndLink.push_back(data);
+	}
+}
+
+void Luf_mp4Option( nlohmann::json &itemFromjsonData, std::vector<std::pair<string, string>> &nameAndLink )
+{
+	string id = itemFromjsonData["sourceUrl"].get<string>();//data.substr(data.find(":") +1, data.length());
+	if ( id.find("&referer") != string::npos )
+		id = id.substr(0, id.find("&referer"));
+
+	id = id.substr( id.find("id=")+ 3, id.length() );
+
+	string prefix = "https://blog.allanime.pro/apivtwo/clock.json\?id=" + id;//id;
+
+	//string prefix = "https://blog.allanime.pro" + id;
+
+	//cout << prefix << endl;
+	//return;
+
+	string jsonData = download(prefix.c_str()).toStdString();
+
+	if ( jsonData == "" )
+	{
+		cout << "ERROR: Couldn't get the json data from Luf_mp4" << endl;
+		exit(1);
+	}
+
+	std::vector<string> links;
+
+	replaceByChar(jsonData, "{}", "\n");
+
+	std::istringstream search(jsonData);
+	string line = "";
+
+	while( std::getline(search, line) )
+	{
+		if ( line.find("https://") != string::npos )
+		{
+			size_t pos = line.find("https://");
+			string aux = line.substr( pos, line.length());
+			aux = aux.substr( 0, aux.find({'"',','}));
+			links.push_back(aux);
+		}
+	}
+
+	if ( links.size() == 0 )
+	{
+		cout << "ERROR: Couldn't stract link from JSON data Luf-mp4" << endl;
+		exit(1);
+	}
+
+	for ( int i = links.size() -1; i >= 0; i-- )
+	{
+		//"www005.anifastcdn.info"
+		//"www025.anifastcdn.info"
+		if ( links.at(i).find(".anifastcdn.info") != string::npos )
+			getEpisodeM3u8FromWww005_anifastcdn_info( links.at(i), nameAndLink);
+
+		if ( nameAndLink.size() > 0 )
+			break;
+	}
+
+	if ( nameAndLink.size() == 0 )
+	{
+		cout << "ERROR: There's no option handler for the links requested" << endl;
+		cout << "list of links:" << endl;
+		for( auto link : links )
+			cout << link << endl;
+		exit(1);
+	}
+}
+
+void playInfo( std::vector<std::pair<string, string>> &nameAndLink, string &optionsToShow, string &quality )
+{
+	if ( nameAndLink.size() == 1 )
+	{
+		cout << "link :" << nameAndLink.at(0).second << endl;
+		cout << "currentQuality :" << nameAndLink.at(0).first << endl;
+		cout << "availableQualities :" << nameAndLink.at(0).first << endl;
+		cout << "options :" << optionsToShow << endl;
+		return;
+	}
+
+	int biggest = 0;
+	if ( quality == "" )
+	{
+		for ( auto item : nameAndLink )
+			if ( stoi(item.first) > biggest )
+				biggest = stoi(item.first);
+
+		for ( auto item : nameAndLink )
+			if ( stoi(item.first) == biggest )
+			{
+				cout << "link :" << item.second << endl;
+				cout << "currentQuality :" << item.first << endl;
+				cout << "availableQualities :";
+				for ( auto qualities : nameAndLink )
+					cout << qualities.first + ", ";
+				cout << endl;
+				cout << "options :" << optionsToShow << endl;
+				return;
+			}
+	}
+	else
+	{
+		for ( auto item : nameAndLink )
+			if ( item.first == quality )
+			{
+				cout << "link :" << item.second << endl;
+				cout << "currentQuality :" << item.first << endl;
+				cout << "availableQualities :";
+				for ( auto qualities : nameAndLink )
+					cout << qualities.first + ", ";
+				cout << endl;
+				cout << "options :" << optionsToShow << endl;
+				return;
+			}
+	}	
 }
 
 int main(int argc, char *argv[])
@@ -218,145 +378,59 @@ int main(int argc, char *argv[])
 		}
 		string mode = "sub";
 		//https://allanime.site/anime/gHQe2eBBh57QdC9hZ/otonari-no-tenshi-sama-ni-itsunomanika-dame-ningen-ni-sareteita-ken
+		//https://api.allanime.to/allanimeapi?variables={%22showId%22:%22cstcbG4EquLyDnAwN%22,%22translationType%22:%22sub%22,%22episodeString%22:%221%22}&extensions={%22persistedQuery%22:{%22version%22:1,%22sha256Hash%22:%220ac09728ee9d556967c1a60bbcf55a9f58b4112006d09a258356aeafe1c33889%22}}
 		string idAndName = fetch.substr(fetch.find("anime/") +6, fetch.length());
 		
-		string urlTemplate = "https://allanime.to/watch/"+ idAndName +"/episode-" + episode +"-"+ mode; //$mode"
-	
-		string html = download( QString(urlTemplate.c_str()) ).toStdString();
+		//string urlTemplate = "https://allanime.to/watch/"+ fetch +"/episode-" + episode +"-"+ mode; //$mode"
 
-		string allTheIds = GetIds(html);
+		cout << "id: " << fetch << " mode: " << mode << " episode: " << episode << endl;
 
-		istringstream search(allTheIds);
-		string line = "";
-		html = "";
-		string optionsAvailable = "";
-		//just to get the available options.
-		while ( std::getline(search, line) )
-			optionsAvailable += line.substr(0, line.find(" ")) + ", ";
+		string urlTemplate = "https://api.allanime.to/allanimeapi?variables={%22showId%22:%22" + fetch + "%22,%22translationType%22:%22" + mode + "%22,%22episodeString%22:%22" + episode + "%22}&extensions={%22persistedQuery%22:{%22version%22:1,%22sha256Hash%22:%220ac09728ee9d556967c1a60bbcf55a9f58b4112006d09a258356aeafe1c33889%22}}";
 
-		search.clear();
-		search.seekg(0);
-		line = "";
+		string serverJsonData = download( QString(urlTemplate.c_str()) ).toStdString();
+
+		if ( serverJsonData == "" )
+		{
+			cout << "ERROR: couldn't download the json data from the server on search method." << endl;
+			cout << "LINK: " << urlTemplate << endl;
+			return 1;
+		}
+
+		nlohmann::json jsonData;
+		jsonData = nlohmann::json::parse( serverJsonData );
+
 		string optionsAvailableToManage[] = {"Luf-mp4"};
 		string optionsToShow = "";
-		for( string item : optionsAvailableToManage )
-		if ( optionsAvailable.find(item) != string::npos )
-			optionsToShow += item + ", ";
 
-		while( std::getline(search,line) )
+		for( auto item : jsonData["data"]["episode"]["sourceUrls"] )
+			for ( string &name : optionsAvailableToManage )
+				if ( item["sourceName"].get<string>() == name )
+					optionsToShow += name + ", ";
+
+		std::vector<std::pair<string, string>> nameAndLink;
+
+		for( auto item : jsonData["data"]["episode"]["sourceUrls"] )
 		{
-			bool keep = false;
-			for ( string item : optionsAvailableToManage )
-				if (line.find(item) != string::npos) keep = true;
-
-			if ( !keep )
-				continue;
-
-			string id = line.substr(line.find(":") +1, line.length());
-			if ( id.find("&referer") != string::npos )
-				id = id.substr(0, id.find("&referer"));
-
-			string prefix = "https://blog.allanime.pro/apivtwo/clock.json\?id=" + id;
-
-			html = download(prefix.c_str()).toStdString();
-
-			if ( option == "" )
+			if ( option != "" )
 			{
-				if ( html != "" ) break;
+				if(option.find("Luf-mp4") != string::npos) Luf_mp4Option( item, nameAndLink);
 			}
 			else
 			{
-				if ( line.find(option) != string::npos )
-					if ( html != "" ) break;
-			}
-		}
-
-		size_t linkPos = html.find("https://");
-		if ( linkPos == string::npos )
-		{
-			cout << "error geting link" << endl;
-			cout << "HTML: " << html << endl;
-			exit(1);
-		}
-
-		string streamingData = html.substr(linkPos, html.length());
-		streamingData = streamingData.substr(0, streamingData.find('"'));
-
-		string link = "";
-		string qualitiesAvailable = "";
-		string episodeKey = "";
-		string currentQuality = "";
-
-		if ( streamingData.find(".m3u8") != string::npos )
-		{
-			link = download(streamingData.c_str()).toStdString();
-			
-			istringstream search(link);
-			string line = "";
-
-			while ( std::getline(search, line) )
-			{
-				size_t namePos = line.find("NAME=");
-				size_t keyPos = line.find("ep.");
-
-				if ( namePos != string::npos )
-				{
-					string aux = line.substr( namePos+6, line.length() );
-					aux = aux.substr(0, aux.find('"'));
-					qualitiesAvailable += aux + ", ";
-					currentQuality = aux;
-				}
-				if ( keyPos != string::npos )
-				{
-					if ( quality == "" )
-					{
-						episodeKey = line;
-					}
-					else
-					{
-						if ( line.find(quality) != string::npos )
-							episodeKey = line;
-					}
-				}
-			}
-			size_t change = streamingData.find("ep.");
-
-			if ( change == string::npos )
-			{
-				cout << "ERROR: not ep.episodekey find on the link." << endl;
-				cout << "LINK: " << streamingData << endl;
-				exit(1);
+				if ( item["sourceName"].get<string>() == "Luf-mp4" ) Luf_mp4Option( item, nameAndLink);
 			}
 
-			if ( currentQuality == "" )
-				currentQuality = "Default";
-
-			if ( qualitiesAvailable == "" )
-				qualitiesAvailable = "Default";
-
-			streamingData = streamingData.substr(0, change);
-			streamingData += episodeKey;
-			cout << "link :" << streamingData << endl;
-			cout << "currentQuality :" + currentQuality << endl;
-			cout << "availableQualities :" << qualitiesAvailable << endl;
-			cout << "options :" << optionsToShow << endl;
+			if ( nameAndLink.size() != 0 ) break;
 		}
-		else
-		if ( streamingData.find(".mp4") != string::npos )
+
+		if ( nameAndLink.size() == 0 )
 		{
-			cout << "link :" << streamingData << endl;
-			cout << "currentQuality :" << "Default" << endl;
-			cout << "availableQualities :" << "Default" << endl;
-			cout << "options :" << "Default" << endl;
-		}
-		else
-		{
-			cout << "ERROR: unrecognized format" << endl;
-			cout << "URL: " << streamingData << endl;
-			exit(1);
+			cout << "ERROR: Couldn't find anime data" << endl;
+			cout << "Ids available:" << endl;
+			return 1;
 		}
 
-		//cout << streamingData << endl;
+		playInfo(nameAndLink, optionsToShow, quality);
 	}
 	else
 	if ( string(argv[1]) == "--search" )
@@ -382,84 +456,59 @@ int main(int argc, char *argv[])
 		string urlTemplate = "https://api.allanime.to/allanimeapi?variables=%7B%22search%22%3A%7B%22query%22%3A%22" + animeName + "%22%2C%22allowAdult%22%3Afalse%2C%22allowUnknown%22%3Afalse%7D%2C%22limit%22%3A26%2C%22page%22%3A1%2C%22translationType%22%3A%22sub%22%2C%22countryOrigin%22%3A%22ALL%22%7D&extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%22c4305f3918591071dfecd081da12243725364f6b7dd92072df09d915e390b1b7%22%7D%7D";
 		string jsonData = download(urlTemplate.c_str()).toStdString();
 
-		replaceByChar(jsonData, "{}", "\n");
-		istringstream search(jsonData);
-		string buffer = "";
-		std::vector<string> final;
-
-		while ( std::getline(search,buffer) )
+		if ( jsonData == "" )
 		{
-			if ( buffer.find("_id") != string::npos )
-			{
-				size_t idPos = buffer.find("id") + 5;
-				size_t namePos = buffer.find("name") + 7;
-				size_t miniaturePos = buffer.find("thumbnail") + 12;
-
-				//manage link.
-				string linkTemplate = "https://allanime.to/anime/";
-				string aux = buffer.substr(idPos, buffer.length());
-				aux = aux.substr(0, aux.find({'"',','}));
-				linkTemplate += aux + "/";
-				//final.push_back( "link :" + aux );
-
-				//manage name.
-				aux = buffer.substr(namePos, buffer.length());
-				aux = aux.substr(0, aux.find({'"',','}));
-				linkTemplate += generateAnimeLinkName(aux) + "/";
-				final.push_back("link :"+linkTemplate);
-				changeHtmlEntities(aux);
-				final.push_back("name :" + aux);
-
-				//manage miniature,
-				aux = buffer.substr(miniaturePos, buffer.length());
-				aux = aux.substr(0, aux.find({'"',','}));
-				if ( aux.find("https") == string::npos )
-					aux = "https://wp.youtube-anime.com/aln.youtube-anime.com/" + aux;
-				final.push_back("miniature :" + aux);
-				final.push_back("end (uwu)");
-			}
+			cout << "ERROR: Failed to download jsonData" << endl;
+			cout << "LINK: " << urlTemplate << endl;
+			return 1;
 		}
-		// cout << jsonData << endl;
-		for ( auto s : final )
-		cout << s << endl;
+
+		nlohmann::json info;
+		info = nlohmann::json::parse( jsonData );
+
+		if ( info["data"]["shows"]["edges"].size() < 1 )
+		{
+			cout << "ERROR: there's not data on the json edges" << endl;
+			return 1;
+		}
+
+		for ( auto item : info["data"]["shows"]["edges"] )
+		{
+			string miniature = item["thumbnail"].get<string>();
+
+			if ( miniature.find("https") == string::npos )
+				miniature = "https://wp.youtube-anime.com/aln.youtube-anime.com/" + miniature;
+
+			cout << "name :" << item["name"].get<string>() << endl;
+			cout << "link :" << item["_id"].get<string>() << endl;
+			cout << "miniature :" << miniature << endl;
+			cout << "end (uwu)" << endl;
+		}
+
+		return 0;
 	}
 	else
 	if ( string(argv[1]) == "--fetch" )
 	{
-		string data = download(argv[2]).toStdString();
+		//https://api.allanime.to/allanimeapi?variables={%22_id%22:%22cstcbG4EquLyDnAwN%22}&extensions={%22persistedQuery%22:{%22version%22:1,%22sha256Hash%22:%22d6069285a58a25defe4a217b82140c6da891605c20e510d4683ae73190831ab0%22}}
+		string data =  "";
+		string link( argv[2] );
 
-		replaceByChar(data, "{}", "\n");
-		istringstream streamLine(data);
-		string line = "";
-		//cout << data << endl;
-		while ( std::getline(streamLine,line) )
-		{
-			string sub = "sub";
-			sub += {0x5C, '"', ':', '['};
-			if ( line.find(sub) != string::npos )
-			{
-				size_t startPos = line.find("sub:[") + 5;
-				replaceByChar(line, {'"'}, "");
+		link = "https://api.allanime.to/allanimeapi?variables={%22_id%22:%22" + link + "%22}&extensions={%22persistedQuery%22:{%22version%22:1,%22sha256Hash%22:%22d6069285a58a25defe4a217b82140c6da891605c20e510d4683ae73190831ab0%22}}";
 
-				line = line.substr(startPos, line.length());
-				line = line.substr(0, line.find(']'));
+		data = download( link.c_str() ).toStdString();
 
-				string episodeList = "";
-				for ( char c : line )
-					if ( c == ',' && episodeList != "" || isdigit(c) ) episodeList.push_back(c);
+		nlohmann::json info;
+		info = nlohmann::json::parse(data);
 
-				cout << "episodeList :" << episodeList << "," << endl;
-			}
-			if ( line.find("description" +string({'"',':'}) ) < 4 )
-			{
-				size_t startPos = line.find(':') + 2;
-				line = line.substr(startPos, line.length());
-				line = line.substr(0, line.find('"'));
-				changeHtmlEntities(line);
-				cout << "description :" << line << endl;
-			}
-		}
+		string episodeList = "";
+		for ( string item : info["data"]["show"]["availableEpisodesDetail"]["sub"] )
+			episodeList += item + ",";
+		string description = info["data"]["show"]["description"].get<string>();
+		changeHtmlEntities( description );
 
+		cout << "episodeList :" << episodeList << "," << endl;
+		cout << "description :" << description << endl;
 		cout << "seasonList :undefined" << endl;
 		cout << "download :no" << endl;
 	}
