@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <string>
 #include <vector>
 #include <chrono>
 
@@ -132,11 +133,21 @@ namespace dood_wf
 	}
 }
 
-void play(const char *query)
+void play(const char *query, const int episode, const int season)
 {
 	std::vector<std::string> streamUrls = {};
+	std::string html = "";
+	std::string link = std::string( query );
+
 	//html from cuevana.ch
-	std::string html = download(query).toStdString();
+	if ( link.find("/serie/") == std::string::npos )
+		html = download(query).toStdString();
+	else
+	{
+		link.replace(link.find("/serie")+1, 5, "episodio");
+		link += "-" + std::to_string(season) + "x" + std::to_string(episode);
+		html = download(link.c_str()).toStdString();
+	}
 
 	if ( html == "" )
 	{

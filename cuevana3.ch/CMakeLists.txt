@@ -8,6 +8,6 @@ project( CUEVANA3.CH )
 find_package( Qt6 )
 link_libraries( Qt6Core Qt6Widgets Qt6Network )
 
-add_executable( a.out main.cpp networking.hpp networking.cpp search.hpp search.cpp play.hpp play.cpp )
+add_executable( a.out main.cpp networking.hpp networking.cpp search.hpp search.cpp play.hpp play.cpp fetch.hpp fetch.cpp)
 
 target_link_libraries( a.out Qt6Core Qt6Network Qt6Widgets )
