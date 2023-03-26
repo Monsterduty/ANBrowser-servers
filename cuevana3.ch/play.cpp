@@ -11,9 +11,11 @@
 struct playDataStruct
 {
 	std::string link = "";
+	std::string currentQuality = "Default";
 	std::vector<std::pair<QByteArray, QByteArray>> headers = {};
 	std::vector<std::string> qualities = {};
 	std::vector<std::string> optionsAvailable = {};
+	//std::vector<std::pair<int, std::string> qualityAndLinkTogether = {};
 };
 
 void filterStreamsUrls( std::string &html, std::vector<std::string> &container )
@@ -133,6 +135,123 @@ namespace dood_wf
 	}
 }
 
+namespace hydrax_net
+{
+	void manageUrl( const char *URL, playDataStruct &playData )
+	{
+		std::string html = download(URL).toStdString();
+
+		std::cout << "HTML: " << html << std::endl;
+	}
+}
+
+namespace pelisplay_cc
+{
+	std::string getMainM3u8( std::string &HTML )
+	{
+		size_t pos = HTML.find( "sources:[{file:" );
+		if ( pos == std::string::npos )
+		{
+			std::cout << "ERROR: couldn't find 'source:[{file:' on pelisplay_cc::getMainM3u8" << std::endl;
+			return "";
+		}
+
+		std::string file = HTML.substr( pos + 17,HTML.length() );
+		file = file.substr( 0, file.find("'") );
+		return file;
+	}
+
+	std::vector<std::pair<int, std::string>> getQualities( std::string &mainM3u8 )
+	{
+		std::string data = download( mainM3u8.c_str() ).toStdString();
+
+		if ( data == "" )
+		{
+			std::cout << "ERROR: couldn't get data from mainM3u8 file on pelisplay_cc::selectQuality" << std::endl;
+			return {};
+		}
+
+		std::istringstream search(data);
+		std::string line = "";
+		std::vector<std::pair<int, std::string>> collectionQualities = { };
+		std::pair<int, std::string> cache(0,"");
+
+		while( std::getline( search, line ) )
+		{
+			if ( line.find( "NAME=" ) != std::string::npos )
+			{
+				size_t pos = line.find( "NAME=" ) + 6;
+				std::string aux =  line.substr( pos, line.length() );
+				aux = aux.substr( 0, aux.find('"') );
+				cache.first = stoi(aux);
+			}
+
+			if ( line.find( "EP." ) != std::string::npos )
+			{
+				size_t end = line.find( ".m3u8" );
+				std::string aux = line.substr( 0, end + 5 );
+				cache.second = aux;
+			}
+			if ( cache.first != 0 && cache.second != "" )
+			{
+				collectionQualities.push_back(cache);
+				cache = std::pair( 0, "" );
+			}
+		}
+
+		return collectionQualities;
+	}
+
+	void makeInfo( std::string &mainM3u8, std::vector<std::pair<int, std::string>> &qualities, playDataStruct &playData, std::string quality = "" )
+	{
+		int current = 0;
+
+		for( auto item : qualities )
+			if ( quality == "" )
+			{
+				if ( item.first > current )
+				{
+					current = item.first;
+					mainM3u8 = mainM3u8.substr( 0, mainM3u8.find("EP.") ) + item.second;
+				}
+			}
+			else
+			{
+				if ( item.first == stoi(quality) )
+				{
+					current  = item.first;
+					mainM3u8 = mainM3u8.substr( 0, mainM3u8.find("EP.") ) + item.second;
+					break;
+				}
+			}
+
+		playData.link = mainM3u8;
+		if ( current != 0 )
+			playData.currentQuality = std::to_string(current) + "p";
+
+		if ( qualities.size() > 1 )
+			for ( auto item : qualities )
+				playData.qualities.push_back( std::to_string(item.first) + "p" );
+	}
+
+	void manageUrl( const char *URL, playDataStruct &playData )
+	{
+		std::string html = download(URL).toStdString();
+
+		std::string mainM3u8 = getMainM3u8(html);
+
+		auto qualities = getQualities( mainM3u8 );
+
+		if ( qualities.size() == 0 )
+		{
+			std::cout << "ERROR: couldn't get any quality from the mainM3u8 file on pelisplay_cc::manageUrl" << std::endl;
+			return;
+		}
+
+		makeInfo(mainM3u8, qualities, playData);
+	}
+}
+
 void play(const char *query, const int episode, const int season)
 {
 	std::vector<std::string> streamUrls = {};
@@ -164,12 +283,22 @@ void play(const char *query, const int episode, const int season)
 	}
 
 	playDataStruct playData;
+	std::string ableToManage[] = { "dood.wf", "pelisplay.cc" };
+	std::string optionsToShow = "";
+
+	for ( auto item : streamUrls )
+		for ( auto manage : ableToManage )
+			if ( item.find( manage ) != std::string::npos && optionsToShow.find( manage ) == std::string::npos )
+				optionsToShow += manage += ", ";
+
 
 	for ( auto item : streamUrls )
 	{
 		//std::cout << item << std::endl;
 		//if ( item.find("streamsss.net") != std::string::npos ) streamsss::manageUrl( item.c_str() );
 		if ( item.find("dood.wf") != std::string::npos ) dood_wf::manangeUrl(item.c_str(), playData);
+		//if ( item.find("hydrax.net") != std::string::npos ) hydrax_net::manageUrl(item.c_str(), playData);
+		if ( item.find("pelisplay.cc") != std::string::npos ) pelisplay_cc::manageUrl(item.c_str(), playData);
 		if ( playData.link != "" )
 			break;
 	}
@@ -182,8 +311,19 @@ void play(const char *query, const int episode, const int season)
 		return;
 	}
 
-	std::cout << "link :" << playData.link << std::endl;
+	std::cout << "LINK :" << playData.link << std::endl;
 	if ( playData.headers.size() > 0 )
 		for ( auto item : playData.headers )
 			std::cout << "HTTP_HEADER :[" << item.first.toStdString() << "][" << item.second.toStdString() << "]" << std::endl;
+	std::cout << "CURRENT_QUALITY :" << playData.currentQuality << std::endl;
+	if ( playData.qualities.size() > 1 )
+	{
+		std::cout << "availableQualities :";
+		for ( auto item : playData.qualities )
+			std::cout << item + ", ";
+		std::cout << std::endl;
+	}
+	else
+		std::cout << "AVAILABLE_QUALITIES :Default" << std::endl;
+	std::cout << "OPTIONS :" << optionsToShow << std::endl;
 }

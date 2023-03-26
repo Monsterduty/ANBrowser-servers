@@ -416,10 +416,10 @@ void playInformation( std::vector<std::pair<string, string>> &information, std::
 {
   if ( information.size() == 1 )
   {
-    cout << "link :" << information.at(0).second << endl;
-    cout << "currentQuality :" << information.at(0).first << endl;
-    cout << "availableQualities :" << information.at(0).first << endl;
-    cout << "options :";
+    cout << "LINK :" << information.at(0).second << endl;
+    cout << "CURRENT_QUALITY :" << information.at(0).first << endl;
+    cout << "AVAILABLE_QUALITIES :" << information.at(0).first << endl;
+    cout << "OPTIONS :";
     for ( string element : options )
       cout << element << ", ";
     cout << endl;
@@ -635,10 +635,10 @@ int main(int argc, char *argv[])
     for ( int i = 0; i < names.size(); i++ )
     {
       changeHtmlEntities(names.at(i).first);
-      cout << "name :" << names.at(i).first << endl;
-      cout << "miniature :" << miniatures.at(i) << endl;
-      cout << "link :" << names.at(i).second << endl;
-      cout << "end (uwu)" << endl;
+      cout << "NAME :" << names.at(i).first << endl;
+      cout << "MINIATURE :" << miniatures.at(i) << endl;
+      cout << "LINK :" << names.at(i).second << endl;
+      cout << "END (uwu)" << endl;
     }
   }
   else
@@ -659,9 +659,9 @@ int main(int argc, char *argv[])
     string description = getDescription(html);
     string caps = getCaps(html);
     
-    cout << "description :" << description << endl;
-    cout << "episodeList :" << caps << endl;
-    cout << "download :false" << endl;
+    cout << "DESCRIPTION :" << description << endl;
+    cout << "EPISODES :" << caps << endl;
+    cout << "DOWNLOAD :no" << endl;
   }
   else
   if ( string(argv[1]) == "--name" )

@@ -317,13 +317,13 @@ void playInfo( std::vector<std::pair<string, string>> &nameAndLink, string &opti
 		for ( auto item : nameAndLink )
 			if ( stoi(item.first) == biggest )
 			{
-				cout << "link :" << item.second << endl;
-				cout << "currentQuality :" << item.first << endl;
-				cout << "availableQualities :";
+				cout << "LINK :" << item.second << endl;
+				cout << "CURRENT_QUALITY :" << item.first << endl;
+				cout << "AVAILABLE_QUALITIES :";
 				for ( auto qualities : nameAndLink )
 					cout << qualities.first + ", ";
 				cout << endl;
-				cout << "options :" << optionsToShow << endl;
+				cout << "OPTIONS :" << optionsToShow << endl;
 				return;
 			}
 	}
@@ -332,13 +332,13 @@ void playInfo( std::vector<std::pair<string, string>> &nameAndLink, string &opti
 		for ( auto item : nameAndLink )
 			if ( item.first == quality )
 			{
-				cout << "link :" << item.second << endl;
-				cout << "currentQuality :" << item.first << endl;
-				cout << "availableQualities :";
+				cout << "LINK :" << item.second << endl;
+				cout << "CURRENT_QUALITY :" << item.first << endl;
+				cout << "AVAILABLE_QUALITIES :";
 				for ( auto qualities : nameAndLink )
 					cout << qualities.first + ", ";
 				cout << endl;
-				cout << "options :" << optionsToShow << endl;
+				cout << "OPTIONS :" << optionsToShow << endl;
 				return;
 			}
 	}	
@@ -383,7 +383,7 @@ int main(int argc, char *argv[])
 		
 		//string urlTemplate = "https://allanime.to/watch/"+ fetch +"/episode-" + episode +"-"+ mode; //$mode"
 
-		cout << "id: " << fetch << " mode: " << mode << " episode: " << episode << endl;
+		//cout << "id: " << fetch << " mode: " << mode << " episode: " << episode << endl;
 
 		string urlTemplate = "https://api.allanime.to/allanimeapi?variables={%22showId%22:%22" + fetch + "%22,%22translationType%22:%22" + mode + "%22,%22episodeString%22:%22" + episode + "%22}&extensions={%22persistedQuery%22:{%22version%22:1,%22sha256Hash%22:%220ac09728ee9d556967c1a60bbcf55a9f58b4112006d09a258356aeafe1c33889%22}}";
 
@@ -479,10 +479,10 @@ int main(int argc, char *argv[])
 			if ( miniature.find("https") == string::npos )
 				miniature = "https://wp.youtube-anime.com/aln.youtube-anime.com/" + miniature;
 
-			cout << "name :" << item["name"].get<string>() << endl;
-			cout << "link :" << item["_id"].get<string>() << endl;
-			cout << "miniature :" << miniature << endl;
-			cout << "end (uwu)" << endl;
+			cout << "NAME :" << item["name"].get<string>() << endl;
+			cout << "LINK :" << item["_id"].get<string>() << endl;
+			cout << "MINIATURE :" << miniature << endl;
+			cout << "END (uwu)" << endl;
 		}
 
 		return 0;
@@ -507,10 +507,10 @@ int main(int argc, char *argv[])
 		string description = info["data"]["show"]["description"].get<string>();
 		changeHtmlEntities( description );
 
-		cout << "episodeList :" << episodeList << "," << endl;
-		cout << "description :" << description << endl;
-		cout << "seasonList :undefined" << endl;
-		cout << "download :no" << endl;
+		cout << "EPISODES :" << episodeList << "," << endl;
+		cout << "DESCRIPTION :" << description << endl;
+		//cout << "seasonList :undefined" << endl;
+		cout << "DOWNLOAD :no" << endl;
 	}
 	else
 	if ( string(argv[1]) == "--name" )

@@ -68,6 +68,12 @@ void search( const char *query )
 
 	std::string html = download(base.c_str(), headers).toStdString();
 
+	if ( html == "" )
+	{
+		std::cout << "ERROR: couldn't download html from cuevana.ch on search" << std::endl;
+		return;
+	}
+
 	std::vector<std::string> links, miniatures, titles;
 
 	getLinks(html, links);
@@ -78,9 +84,9 @@ void search( const char *query )
 
 	for ( int i = 0; i < links.size(); i++ )
 	{
-		std::cout << "name :" << titles.at(i) << std::endl;
-		std::cout << "link :" << prefix + links.at(i) << std::endl;
-		std::cout << "miniature :https:" << miniatures.at(i) << std::endl;
-		std::cout << "end (uwu)" << std::endl;
+		std::cout << "NAME :" << titles.at(i) << std::endl;
+		std::cout << "LINK :" << prefix + links.at(i) << std::endl;
+		std::cout << "MINIATURE :https:" << miniatures.at(i) << std::endl;
+		std::cout << "END (uwu)" << std::endl;
 	}
 }

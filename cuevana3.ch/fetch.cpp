@@ -92,7 +92,7 @@ void fetch( std::string URL )
 		fetchMovie(URL, information);
 
 	if ( information.description != "" )
-		std::cout << "description :" << information.description << std::endl;
+		std::cout << "DESCRIPTION :" << information.description << std::endl;
 
 	if ( information.episodes.size() > 0 )
 	{
@@ -100,7 +100,7 @@ void fetch( std::string URL )
 			for ( int i = 0; i < information.seasons.size(); i++ )
 				std::cout << "SEASON_"<< information.seasons.at(i) << " :" << information.episodes.at(i) << std::endl;
 		else
-			std::cout << "episodeList :" << information.episodes.at(0) << std::endl;
-		std::cout << "download :no" << std::endl;
+			std::cout << "EPISODES :" << information.episodes.at(0) << std::endl;
+		std::cout << "DOWNLOAD :no" << std::endl;
 	}
 }
