@@ -453,7 +453,10 @@ int main(int argc, char *argv[])
 		}
 
 		// string urlTemplate = "https://api.allanime.to/allanimeapi?variables=%7B%22search%22%3A%7B%22allowAdult%22%3Atrue%2C%22allowUnknown%22%3Atrue%2C%22query%22%3A%22" + animeName + "%22%7D%2C%22limit%22%3A40%2C%22page%22%3A1%2C%22translationType%22%3A%22" + mode + "%22%2C%22countryOrigin%22%3A%22ALL%22%7D&extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%229c7a8bc1e095a34f2972699e8105f7aaf9082c6e1ccd56eab99c2f1a971152c6%22%7D%7D";
-		string urlTemplate = "https://api.allanime.to/allanimeapi?variables=%7B%22search%22%3A%7B%22query%22%3A%22" + animeName + "%22%2C%22allowAdult%22%3Afalse%2C%22allowUnknown%22%3Afalse%7D%2C%22limit%22%3A26%2C%22page%22%3A1%2C%22translationType%22%3A%22sub%22%2C%22countryOrigin%22%3A%22ALL%22%7D&extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%22c4305f3918591071dfecd081da12243725364f6b7dd92072df09d915e390b1b7%22%7D%7D";
+		//string urlTemplate = "https://api.allanime.to/allanimeapi?variables=%7B%22search%22%3A%7B%22query%22%3A%22" + animeName + "%22%2C%22allowAdult%22%3Afalse%2C%22allowUnknown%22%3Afalse%7D%2C%22limit%22%3A26%2C%22page%22%3A1%2C%22translationType%22%3A%22sub%22%2C%22countryOrigin%22%3A%22ALL%22%7D&extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%222f9e95bd0291bafd5351f9ba0ee042086fade20eb4cace7fa69f502c45df93e1%22%7D%7D";
+		
+		string  urlTemplate = "https://api.allanime.to/allanimeapi?variables={%22search%22:{%22query%22:%22" + animeName + "%22,%22allowAdult%22:true,%22allowUnknown%22:false},%22limit%22:50,%22page%22:1,%22translationType%22:%22sub%22,%22countryOrigin%22:%22ALL%22}&extensions={%22persistedQuery%22:{%22version%22:1,%22sha256Hash%22:%22b645a686b1988327795e1203867ed24f27c6338b41e5e3412fc1478a8ab6774e%22}}";
+
 		string jsonData = download(urlTemplate.c_str()).toStdString();
 
 		if ( jsonData == "" )
@@ -469,6 +472,7 @@ int main(int argc, char *argv[])
 		if ( info["data"]["shows"]["edges"].size() < 1 )
 		{
 			cout << "ERROR: there's not data on the json edges" << endl;
+			cout << info << endl;
 			return 1;
 		}
 
@@ -494,21 +498,65 @@ int main(int argc, char *argv[])
 		string data =  "";
 		string link( argv[2] );
 
+		//link = "https://api.allanime.to/allanimeapi?variables={%22_id%22:%22" + link + "%22}&extensions={%22persistedQuery%22:{%22version%22:1,%22sha256Hash%22:%22b645a686b1988327795e1203867ed24f27c6338b41e5e3412fc1478a8ab6774e%22}}";
+
 		link = "https://api.allanime.to/allanimeapi?variables={%22_id%22:%22" + link + "%22}&extensions={%22persistedQuery%22:{%22version%22:1,%22sha256Hash%22:%22d6069285a58a25defe4a217b82140c6da891605c20e510d4683ae73190831ab0%22}}";
 
 		data = download( link.c_str() ).toStdString();
 
+		if ( data == "" )
+		{
+			std::cout << "ERROR: couldn't download JSON data from allanime api on fetch" << std::endl;
+			return 1;
+		}
+
 		nlohmann::json info;
 		info = nlohmann::json::parse(data);
 
-		string episodeList = "";
-		for ( string item : info["data"]["show"]["availableEpisodesDetail"]["sub"] )
-			episodeList += item + ",";
-		string description = info["data"]["show"]["description"].get<string>();
-		changeHtmlEntities( description );
+		if ( !info.contains("data") )
+		{
+			std::cout << "ERROR : JSON data doesn't contains a [data] field!" << std::endl;
+			return 1;
+		}
 
+		if ( !info["data"].contains("show") )
+		{
+			std::cout << "ERROR: JSON data doesn't contains a [data][show] field!" << std::endl;
+			std::cout << "JSON: " << info << std::endl;
+			return 1;
+		}
+
+		if ( !info["data"]["show"].contains("availableEpisodesDetail") )
+		{
+			std::cout << "ERROR: JSON data doesn't contains a [data][show][availableEpisodesDetail] field!" << std::endl;
+			return 1;
+		}
+
+		if ( !info["data"]["show"]["availableEpisodesDetail"].contains("sub") )
+		{
+			std::cout << "ERROR: JSON data doesn't contains a [data][show][availableEpisodesDetail][sub] field!" << std::endl;
+			return 1;
+		}
+
+		if ( info["data"]["show"]["availableEpisodesDetail"]["sub"].size() == 0 )
+		{
+			std::cout << "ERROR: JSON data doesn't contains any episode to show" << std::endl;
+			return 1;
+		}
+
+		string episodeList = "";
+		for ( auto item : info["data"]["show"]["availableEpisodesDetail"]["sub"] )
+			episodeList += item.get<std::string>() + ",";
+		string description = "";
+
+		if ( info["data"]["show"]["description"].size() > 0 )
+		{
+			description = info["data"]["show"]["description"].get<string>();
+			changeHtmlEntities( description );
+		}
 		cout << "EPISODES :" << episodeList << "," << endl;
-		cout << "DESCRIPTION :" << description << endl;
+		if ( description != "" )
+			cout << "DESCRIPTION :" << description << endl;
 		//cout << "seasonList :undefined" << endl;
 		cout << "DOWNLOAD :no" << endl;
 	}
